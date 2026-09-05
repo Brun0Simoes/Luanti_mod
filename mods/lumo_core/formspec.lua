@@ -20,7 +20,10 @@ lumo.fs = {}
 
 --- Escapa um valor para caber dentro de um campo de formspec.
 function lumo.fs.esc(value)
-	return core.formspec_escape(tostring(value == nil and "" or value))
+	-- Parênteses de propósito: `core.formspec_escape` é um `string.gsub` e
+	-- devolve *dois* valores. Sem eles, o segundo vaza para a primeira
+	-- chamada que use isto no meio de um `format`.
+	return (core.formspec_escape(tostring(value == nil and "" or value)))
 end
 
 --- Monta a lista separada por vírgulas de um dropdown ou textlist.

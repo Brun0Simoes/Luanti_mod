@@ -217,7 +217,18 @@ lumo.events.on("MODS_LOADED", function()
 	-- `core.place_schematic` antes disso não coloca nada -- só registra um
 	-- aviso de "chamada durante a inicialização" e segue em frente. Um passo
 	-- de servidor depois, o ambiente existe.
-	core.after(0, place_workshop)
+	-- Dentro de pcall: `core.after` invoca o trabalho sem proteção
+	-- (builtin/common/after.lua), e um erro escapando de um globalstep vira
+	-- `setAsyncFatalError` -- ou seja, servidor fora do ar. Antes o `emit` do
+	-- event bus protegia esta chamada; ao movê-la para cá, essa rede sumiu.
+	-- O comentário lá em cima promete que a ausência do schematic é um no-op e
+	-- não um erro que impede o mundo de carregar; isto sustenta a promessa.
+	core.after(0, function()
+		local ok, err = pcall(place_workshop)
+		if not ok then
+			core.log("error", ("[%s] falha ao colocar a Oficina: %s"):format(MOD, tostring(err)))
+		end
+	end)
 end)
 
 lumo.events.on("PLAYER_JOIN", function(data)

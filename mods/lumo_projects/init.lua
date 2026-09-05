@@ -11,7 +11,7 @@
 --
 -- Publica: PROJECT_STARTED, PROJECT_COMPLETED
 -- Consome: PLAYER_JOIN, PLAYER_LEAVE, BLOCK_PLACED, HEIGHT_REACHED,
---          DEPTH_REACHED, TICK
+--          DEPTH_REACHED, STRUCTURE_DETECTED, TICK
 
 lumo.projects = {}
 
@@ -170,7 +170,7 @@ local function run_checks(event_name, name, data)
 	end
 end
 
-for _, ev in ipairs({"BLOCK_PLACED", "HEIGHT_REACHED", "DEPTH_REACHED"}) do
+for _, ev in ipairs({"BLOCK_PLACED", "HEIGHT_REACHED", "DEPTH_REACHED", "STRUCTURE_DETECTED"}) do
 	lumo.events.on(ev, function(data)
 		run_checks(ev, data.name, data)
 	end, 60)   -- depois do lumo_player (que atualiza as estatísticas usadas aqui)
@@ -231,14 +231,18 @@ lumo.projects.register({
 	end,
 })
 
+-- Este projeto media a *altitude do jogador*, e não uma construção. Mesmo com
+-- a origem correta, subir um morro a pé o cumpriria -- o que contraria a regra
+-- de reconhecer a intenção: "construir algo alto" é sobre o que ela ergueu, não
+-- sobre onde ela está. O detector de torre já responde exatamente isso.
 lumo.projects.register({
 	id = "bem_alto",
 	title = "Construir algo muito alto",
 	prompt = "Será que a gente consegue chegar bem alto daqui?",
 	done_text = "Olha o tamanho disso!",
-	events = {"HEIGHT_REACHED"},
-	check = function(name)
-		return lumo.player.get_relative_height(name) >= 20
+	events = {"STRUCTURE_DETECTED"},
+	check = function(_, data)
+		return data.kind == "tower" and data.size >= 12
 	end,
 })
 

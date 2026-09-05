@@ -147,11 +147,14 @@ local function page_journal(name)
 	for _, c in ipairs(list) do
 		rows[#rows + 1] = esc(("%s   %s"):format(c.title, fmt_date(c.at)))
 	end
-	-- `selected` pode estar fora de faixa (pacote forjado, ou o Livro mudou
-	-- entre uma tela e outra). A renderização nunca indexa sem checar.
-	local idx = selected[name] or 1
-	if idx < 1 or idx > #list then
-		idx = 1
+	-- Encontra a linha correspondente ao id guardado. Se ele sumiu (ou nunca
+	-- houve escolha), cai na primeira -- a renderização nunca indexa às cegas.
+	local idx = 1
+	for i, c in ipairs(list) do
+		if c.id == selected[name] then
+			idx = i
+			break
+		end
 	end
 	local cur = list[idx]
 
@@ -204,35 +207,37 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 	local name = player:get_player_name()
 
 	if fields.tab then
-		lumo.ui.show(name, tonumber(fields.tab) or 1)
+		-- Vem do cliente e acaba num "%d" na montagem do formspec. Um valor
+		-- fracionário ou infinito ali é, no melhor caso, indefinido -- e um
+		-- erro em receive_fields derruba o servidor.
+		local tab = math.floor(tonumber(fields.tab) or 1)
+		if tab ~= tab or tab < 1 or tab > #TABS then   -- tab ~= tab pega NaN
+			tab = 1
+		end
+		lumo.ui.show(name, tab)
 		return true
 	end
 
 	if fields.creations then
 		local idx = textlist_index(fields.creations, lumo.journal.count(name))
 		if idx then
-			selected[name] = idx
+			-- Guarda o id, não a linha: a lista pode mudar entre a escolha e o
+			-- clique em Guardar, e é o id que identifica a criação.
+			local entry = lumo.journal.list(name)[idx]
+			selected[name] = entry and entry.id or nil
 			lumo.ui.show(name, 3)
 		end
 		return true
 	end
 
 	if fields.save_entry then
-		local total = lumo.journal.count(name)
-		local idx = selected[name] or 1
-		if total == 0 or idx < 1 or idx > total then
-			lumo.ui.show(name, 3)
-			return true
-		end
-		-- Pelo id, e não pela posição: a lista pode ter mudado entre a tela
-		-- que ela viu e o clique em Guardar.
-		local entry = lumo.journal.list(name)[idx]
-		if entry then
+		local id = selected[name]
+		if lumo.journal.by_id(name, id) then
 			if fields.new_title then
-				lumo.journal.rename(name, entry.id, fields.new_title)
+				lumo.journal.rename(name, id, fields.new_title)
 			end
 			if fields.new_note then
-				lumo.journal.set_note(name, entry.id, fields.new_note)
+				lumo.journal.set_note(name, id, fields.new_note)
 			end
 		end
 		lumo.ui.show(name, 3)

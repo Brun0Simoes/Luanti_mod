@@ -15,9 +15,20 @@ local META_KEY = "lumo"
 local FORMAT = 1          -- versão do formato salvo; ver migrate()
 local AUTOSAVE = 60       -- segundos
 
+-- Quanto esperamos antes de fixar a altura de origem.
+--
+-- A engine ainda está resolvendo o ponto de nascimento nos primeiros segundos:
+-- o jogador aparece no ar, cai até o chão, e às vezes é reposicionado. Medir
+-- nesse intervalo transformava a queda numa subida -- e um projeto de
+-- *construção* era dado como cumprido antes de a criança colocar o primeiro
+-- bloco. Vi isso acontecer: "Você conseguiu! Olha o tamanho disso!" cinco
+-- segundos depois de entrar no mundo.
+local SETTLE = 6          -- segundos
+
 -- Estado em memória, indexado por nome de jogador. Só existe enquanto a pessoa
 -- está conectada; a fonte durável é o meta do jogador.
 local state = {}
+local settling = {}   -- [nome] = segundos restantes até fixar a origem
 local since_save = 0
 
 -- ---------------------------------------------------------------------------
@@ -72,7 +83,13 @@ end
 --- Enquanto FORMAT for 1 não há nada a fazer, mas o ponto de entrada precisa
 --- existir antes de a primeira criança salvar progresso -- depois é tarde.
 local function migrate(data)
-	if type(data) ~= "table" or data.format == nil then
+	-- `type(data.format) ~= "number"` e não `== nil`: um format que fosse
+	-- string ou booleano fazia a comparação abaixo levantar erro. Como isto roda
+	-- dentro do pcall do event bus, o erro era engolido, `state[name]` nunca era
+	-- atribuído, e a criança passava a sessão inteira sem progresso -- sem save,
+	-- sem menu, e sem sequer o backup, porque a exceção acontecia antes dele.
+	-- Toda sessão seguinte batia na mesma parede.
+	if type(data) ~= "table" or type(data.format) ~= "number" then
 		return nil
 	end
 	if data.format > FORMAT then
@@ -91,6 +108,15 @@ local function migrate(data)
 	-- `records` chegava a jogador novo e nunca a quem já tinha save: `data.stats`
 	-- existia, então a chave jamais era criada, e a primeira soma estourava
 	-- dentro do pcall do bus -- ou seja, em silêncio, e para sempre.
+	-- Os campos que são só coleções precisam ao menos ser tabelas: um valor
+	-- estranho aqui só falharia mais tarde, num pairs() distante daqui.
+	for _, key in ipairs({"placed_by_node", "projects", "discoveries",
+	                      "creations", "visited_regions", "program", "memory"}) do
+		if type(data[key]) ~= "table" then
+			data[key] = {}
+		end
+	end
+
 	for _, sub in ipairs({"prefs", "stats", "records"}) do
 		if type(data[sub]) ~= "table" then
 			data[sub] = fresh[sub]
@@ -127,9 +153,19 @@ local function load(player)
 			-- autosave passaria por cima do original em até 60 segundos e as
 			-- criações, descobertas e preferências da criança sumiriam sem
 			-- recurso. Guardamos os bytes originais antes de seguir do zero.
-			player:get_meta():set_string(META_KEY .. "_recuperar", raw)
-			core.log("warning", ("[%s] progresso de %s ilegível; original guardado em %s_recuperar, começando do zero")
-				:format(MOD, name, META_KEY))
+			-- Só grava se ainda não houver backup. Sem esta condição, uma
+			-- segunda leitura ilegível sobrescrevia o backup com lixo -- e é
+			-- exatamente essa a situação para a qual ele existe, porque um
+			-- problema de serialização tende a se repetir.
+			local meta = player:get_meta()
+			if meta:get_string(META_KEY .. "_recuperar") == "" then
+				meta:set_string(META_KEY .. "_recuperar", raw)
+				core.log("warning", ("[%s] progresso de %s ilegível; original guardado em %s_recuperar, começando do zero")
+					:format(MOD, name, META_KEY))
+			else
+				core.log("warning", ("[%s] progresso de %s ilegível de novo; backup anterior preservado")
+					:format(MOD, name))
+			end
 		end
 	end
 
@@ -255,12 +291,14 @@ end
 -- reagir ao mesmo PLAYER_JOIN.
 lumo.events.on("PLAYER_JOIN", function(data)
 	load(data.player)
+	settling[data.name] = SETTLE
 end, 10)
 
 -- Prioridade 90: os outros já tiveram a chance de escrever algo no estado.
 lumo.events.on("PLAYER_LEAVE", function(data)
 	save(data.name)
 	state[data.name] = nil
+	settling[data.name] = nil
 end, 90)
 
 lumo.events.on("SHUTDOWN", function()
@@ -301,10 +339,27 @@ lumo.events.on("TICK", function(data)
 			local y = math.floor(player:get_pos().y)
 			local rec = st.records
 
-			if rec.height == nil then
-				-- Primeira amostra da sessão: vira a referência, sem alarde.
+			local left = settling[name]
+
+			if left then
+				-- Ainda assentando: não medimos nada. Ver o comentário de
+				-- SETTLE -- é aqui que um projeto de construção era concluído
+				-- pela queda do nascimento.
+				left = left - data.dtime
+				if left > 0 then
+					settling[name] = left
+				else
+					settling[name] = nil
+					if rec.origin == nil then
+						rec.origin = y
+					end
+					-- Recordes são de vida inteira: só inicializamos se ainda
+					-- não existirem, nunca reiniciamos.
+					rec.height = rec.height or y
+					rec.depth = rec.depth or y
+				end
+			elseif rec.height == nil then
 				rec.height, rec.depth = y, y
-				-- A origem é gravada só na primeiríssima vez e nunca mais.
 				if rec.origin == nil then
 					rec.origin = y
 				end

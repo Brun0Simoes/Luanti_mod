@@ -88,6 +88,7 @@ end
 
 local function end_pass()
 	memo = nil
+	budget = 0
 end
 
 --- Um node é sólido o bastante para formar parede ou piso?
@@ -413,15 +414,11 @@ lumo.events.on("PLAYER_LEAVE", function(data)
 	end
 end)
 
--- Prioridade 70: depois do lumo_player e do lumo_projects, para que as
--- estatísticas já estejam atualizadas quando o detector rodar.
-lumo.events.on("BLOCK_PLACED", function(data)
-	if not data.name or not data.pos or not data.node then
-		return
-	end
-
-	begin_pass()
-
+--- O corpo das detecções, separado do handler para que `end_pass` possa rodar
+--- mesmo quando algo aqui dentro falha. Sem isso, um erro num detector deixava
+--- a memória da passagem viva, com respostas velhas sobre o mundo, e o
+--- orçamento pela metade -- e a próxima chamada da API exportada lia tudo isso.
+local function detect(data)
 	-- Os detectores baratos primeiro, para que uma varredura de interior não
 	-- consuma o orçamento antes de eles rodarem.
 	local node_name = data.node.name
@@ -469,8 +466,20 @@ lumo.events.on("BLOCK_PLACED", function(data)
 		-- acontecia na próxima colocação -- que não viria.
 		pending[data.name] = vector.new(data.pos.x, data.pos.y, data.pos.z)
 	end
+end
 
+-- Prioridade 70: depois do lumo_player e do lumo_projects, para que as
+-- estatísticas já estejam atualizadas quando o detector rodar.
+lumo.events.on("BLOCK_PLACED", function(data)
+	if not data.name or not data.pos or not data.node then
+		return
+	end
+	begin_pass()
+	local ok, err = pcall(detect, data)
 	end_pass()
+	if not ok then
+		core.log("error", ("[%s] detector falhou: %s"):format(MOD, tostring(err)))
+	end
 end, 70)
 
 lumo.events.on("TICK", function(data)
@@ -480,8 +489,11 @@ lumo.events.on("TICK", function(data)
 		if pos and scan_due(name) then
 			pending[name] = nil
 			begin_pass()
-			scan_for_house(name, player, pos)
+			local ok, err = pcall(scan_for_house, name, player, pos)
 			end_pass()
+			if not ok then
+				core.log("error", ("[%s] varredura de casa falhou: %s"):format(MOD, tostring(err)))
+			end
 		end
 	end
 end)

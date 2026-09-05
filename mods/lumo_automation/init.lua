@@ -112,37 +112,50 @@ local running = {}   -- [nome] = true enquanto um programa roda
 -- tempo, cada um achando que era o único.
 local generation = {}   -- [nome] = número da execução atual
 
---- O bloco que o Lumo vai colocar.
+--- Qual bloco o Lumo usaria agora -- sem consumir nada ainda.
 ---
 --- Primeiro o que a criança está segurando: é a única forma de ela dizer "use
 --- este". Antes isto pegava o primeiro node que achasse no inventário, o que
 --- emparedava o baú que estivesse no slot 1 e ignorava por completo a escolha
 --- dela. O resto do inventário é só reserva, para o programa não parar no meio.
-local function take_block(player, name)
-	local free = core.is_creative_enabled(name)
-
+---
+--- Devolve o nome do node e de onde ele sairia ("wield" ou o índice do slot).
+local function peek_block(player)
 	local wielded = player:get_wielded_item()
 	local wname = wielded:get_name()
 	if wname ~= "" and core.registered_nodes[wname] then
-		if not free then
-			wielded:take_item(1)
-			player:set_wielded_item(wielded)
-		end
-		return wname
+		return wname, "wield"
 	end
 
 	local inv = player:get_inventory()
 	for i, stack in ipairs(inv:get_list("main") or {}) do
 		local iname = stack:get_name()
 		if iname ~= "" and core.registered_nodes[iname] then
-			if not free then
-				stack:take_item(1)
-				inv:set_stack("main", i, stack)
-			end
-			return iname
+			return iname, i
 		end
 	end
 	return nil
+end
+
+--- Consome de fato. Só depois de a colocação ter dado certo.
+---
+--- A ordem importa: retirar antes de tentar fazia com que uma colocação
+--- falhada -- bloco de mapa não carregado -- comesse o bloco da criança sem
+--- dizer nada. Trocar o anúncio fantasma por perda silenciosa não é conserto.
+local function consume_block(player, name, where)
+	if core.is_creative_enabled(name) then
+		return
+	end
+	if where == "wield" then
+		local w = player:get_wielded_item()
+		w:take_item(1)
+		player:set_wielded_item(w)
+	else
+		local inv = player:get_inventory()
+		local stack = inv:get_stack("main", where)
+		stack:take_item(1)
+		inv:set_stack("main", where, stack)
+	end
 end
 
 --- Coloca um bloco e conta ao resto do jogo que isso aconteceu.
@@ -301,11 +314,12 @@ function lumo.automation.run(name, on_done)
 			if def and node.name ~= "ignore"
 				and (def.buildable_to or node.name == "air") then
 
-				local item = take_block(player, name)
+				local item, where = peek_block(player)
 				if not item then
 					return finish("O Lumo ficou sem blocos para colocar.")
 				end
 				if set_node_and_announce(cursor.pos, { name = item, param1 = 0, param2 = 0 }, player) then
+					consume_block(player, name, where)
 					placed = placed + 1
 				end
 			end
@@ -386,8 +400,14 @@ core.register_on_player_receive_fields(function(player, formname, fields)
 
 	if fields.steps then
 		local ev = core.explode_textlist_event(fields.steps)
-		if ev.type == "CHG" or ev.type == "DCL" then
-			sel_step[name] = ev.index
+		local total = #lumo.automation.get_program(name)
+		local i = tonumber(ev.index)
+		-- O índice vem do cliente. Um valor absurdo não quebra nada aqui, mas
+		-- ficava grudado e o botão Apagar passava a não fazer nada, em vez de
+		-- cair no comportamento padrão de remover o último passo.
+		if (ev.type == "CHG" or ev.type == "DCL")
+			and i and i == math.floor(i) and i >= 1 and i <= total then
+			sel_step[name] = i
 		end
 		return true
 	end
@@ -443,7 +463,10 @@ core.register_chatcommand("ensinar", {
 
 lumo.events.on("PLAYER_LEAVE", function(data)
 	running[data.name] = nil
-	generation[data.name] = nil
+	-- Incrementa em vez de apagar: zerar reabriria a porta que este contador
+	-- fecha, porque uma continuação pendente da sessão anterior voltaria a
+	-- casar com a geração 1 da sessão seguinte.
+	generation[data.name] = (generation[data.name] or 0) + 1
 	sel_step[data.name] = nil
 end)
 

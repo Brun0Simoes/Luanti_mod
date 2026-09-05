@@ -11,7 +11,7 @@
 -- declarar a dependência real que tem daqui.
 --
 -- Publica: CREATION_RECORDED
--- Consome: STRUCTURE_DETECTED, PROJECT_COMPLETED
+-- Consome: PLAYER_JOIN, STRUCTURE_DETECTED, PROJECT_COMPLETED
 
 lumo.journal = {}
 
@@ -113,6 +113,11 @@ end
 --- então o tamanho é limitado e quebras de linha somem.
 --- A entrada com este id, ou nil.
 function lumo.journal.by_id(name, id)
+	-- Sem esta recusa, `by_id(name, nil)` casava a primeira entrada que também
+	-- não tivesse id -- e a criança renomeava uma criação que não escolheu.
+	if type(id) ~= "number" then
+		return nil
+	end
 	for _, c in ipairs(lumo.journal.list(name)) do
 		if c.id == id then
 			return c
@@ -170,6 +175,33 @@ local function already_recorded(name, kind)
 	end
 	return false
 end
+
+-- Criações gravadas antes de existir o id estável não têm um. Quem conserta o
+-- formato é o módulo dono dele: o lumo_player não deveria conhecer o formato de
+-- uma entrada do Livro para poder migrá-la.
+--
+-- Prioridade 15: logo depois de o lumo_player (10) carregar o estado, e antes
+-- de qualquer interface poder ler a lista.
+lumo.events.on("PLAYER_JOIN", function(data)
+	local st = lumo.player.get(data.name)
+	if not st then
+		return
+	end
+
+	local highest = st.next_creation_id or 0
+	for _, c in ipairs(st.creations) do
+		if type(c.id) == "number" and c.id > highest then
+			highest = c.id
+		end
+	end
+	for _, c in ipairs(st.creations) do
+		if type(c.id) ~= "number" then
+			highest = highest + 1
+			c.id = highest
+		end
+	end
+	st.next_creation_id = highest
+end, 15)
 
 lumo.events.on("STRUCTURE_DETECTED", function(data)
 	if already_recorded(data.name, data.kind) then
