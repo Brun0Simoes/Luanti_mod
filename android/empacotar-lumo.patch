@@ -1,0 +1,47 @@
+diff --git a/android/app/build.gradle b/android/app/build.gradle
+index 6be86b810..5b9108443 100644
+--- a/android/app/build.gradle
++++ b/android/app/build.gradle
+@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
+ android {
+ 	ndkVersion "$ndk_version"
+ 	defaultConfig {
+-		applicationId 'net.minetest.minetest'
++		applicationId 'org.lumo.oficina'
+ 		minSdkVersion 21
+ 		compileSdk = 34
+ 		targetSdkVersion 35
+@@ -113,6 +113,21 @@ tasks.register("prepareAssets") {
+ 			from "${localeFolder}" into "${assetsFolder}/locale"
+ 		}
+ 
++		// O APK oficial do Luanti sai sem jogo nenhum: quem instala baixa um
++		// pelo ContentDB dentro do app. Aqui o Lumo vai junto, senão o APK
++		// abriria numa lista vazia.
++		//
++		// O `.git` precisa ficar de fora -- games/lumo e um repositorio, e o
++		// historico dele sozinho passa de dez megabytes dentro do APK. `utils`
++		// sao as ferramentas de validacao, que nao servem para nada num
++		// telefone.
++		copy {
++			from("${projRoot}/games/lumo") {
++				exclude ".git/**", ".gitignore", "utils/**", "README.md"
++			}
++			into "${assetsFolder}/games/lumo"
++		}
++
+ 		file("${assetsFolder}/.nomedia").text = ""
+ 	}
+ }
+diff --git a/android/app/src/main/res/values/strings.xml b/android/app/src/main/res/values/strings.xml
+index 8b8bc625b..05db265af 100644
+--- a/android/app/src/main/res/values/strings.xml
++++ b/android/app/src/main/res/values/strings.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-	<string name="label">Luanti</string>
++	<string name="label">Lumo</string>
+ 	<string name="loading">Loading&#8230;</string>
+ 	<string name="notification_channel_name">General notification</string>
+ 	<string name="notification_channel_description">Notifications from Luanti</string>
