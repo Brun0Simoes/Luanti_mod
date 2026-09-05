@@ -6,7 +6,7 @@
 --
 -- Publica: HEIGHT_REACHED, DEPTH_REACHED
 -- Consome: PLAYER_JOIN, PLAYER_LEAVE, BLOCK_PLACED, BLOCK_REMOVED,
---          ITEM_CRAFTED, TICK, SHUTDOWN
+--          ITEM_CRAFTED, CANVAS_BUILT, TICK, SHUTDOWN
 
 lumo.player = {}
 
@@ -321,6 +321,16 @@ lumo.events.on("BLOCK_REMOVED", function(data)
 	local st = data.name and state[data.name]
 	if st then
 		st.stats.blocks_removed = st.stats.blocks_removed + 1
+	end
+end)
+
+-- O lumo_canvas coloca milhares de blocos sem passar pelos callbacks da
+-- engine, de propósito. Então a contagem chega aqui de uma vez só -- senão o
+-- desenho da criança não contaria como coisa construída.
+lumo.events.on("CANVAS_BUILT", function(data)
+	local st = data.name and state[data.name]
+	if st and type(data.blocks) == "number" then
+		st.stats.blocks_placed = st.stats.blocks_placed + data.blocks
 	end
 end)
 

@@ -26,7 +26,9 @@ local MOD = core.get_current_modname()
 
 -- Os nomes vêm de dye.dyes; os valores hexadecimais são nossos, escolhidos
 -- para casar visualmente com as texturas de lã correspondentes.
-local HEX = {
+-- Exposto porque a paleta (paleta.lua) precisa destes valores para escolher a
+-- tinta mais próxima de cada corante ao montar as receitas.
+lumo.blocks.HEX = {
 	white      = "#ffffff",
 	grey       = "#9a9a9a",
 	dark_grey  = "#5a5a5a",
@@ -55,7 +57,7 @@ lumo.blocks.colors = {}
 
 for _, row in ipairs(dye.dyes) do
 	local name = row[1]
-	local hex = HEX[name]
+	local hex = lumo.blocks.HEX[name]
 	local pt = PT[name] or name
 
 	if not hex then
@@ -141,3 +143,7 @@ core.register_craft({
 
 core.log("action", ("[%s] %d cores registradas (%d nodes)")
 	:format(MOD, #lumo.blocks.colors, #lumo.blocks.colors * 2 + 1))
+
+-- A paleta de cem tintas vive num arquivo à parte: ela é gerada por programa e
+-- não tem nada a ver com os blocos escolhidos à mão aqui de cima.
+dofile(core.get_modpath(MOD) .. "/paleta.lua")

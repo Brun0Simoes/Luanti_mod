@@ -11,7 +11,7 @@
 -- declarar a dependência real que tem daqui.
 --
 -- Publica: CREATION_RECORDED
--- Consome: PLAYER_JOIN, STRUCTURE_DETECTED, PROJECT_COMPLETED
+-- Consome: PLAYER_JOIN, STRUCTURE_DETECTED, PROJECT_COMPLETED, CANVAS_BUILT
 
 lumo.journal = {}
 
@@ -20,6 +20,7 @@ local MAX_ENTRIES = 200   -- teto de segurança; ver prune()
 
 -- Nomes iniciais. A criança pode trocar qualquer um.
 local DEFAULT_TITLES = {
+	desenho = "Meu desenho",
 	house   = "Minha casa",
 	bridge  = "Minha ponte",
 	tower   = "Minha torre",
@@ -210,6 +211,16 @@ lumo.events.on("STRUCTURE_DETECTED", function(data)
 	lumo.journal.record(data.name, {
 		kind = data.kind,
 		detail = describe(data.kind, data.size),
+		pos = data.pos,
+	})
+end, 80)
+
+lumo.events.on("CANVAS_BUILT", function(data)
+	lumo.journal.record(data.name, {
+		kind = "desenho",
+		title = "Meu desenho",
+		detail = ("%d por %d blocos, a partir de %s")
+			:format(data.width or 0, data.height or 0, tostring(data.filename)),
 		pos = data.pos,
 	})
 end, 80)

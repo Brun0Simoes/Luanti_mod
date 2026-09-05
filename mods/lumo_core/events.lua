@@ -136,3 +136,4 @@ lumo.events.declare("DISCOVERY_FOUND",    "lumo_discoveries; data = {player, nam
 lumo.events.declare("LUMO_INTERACTION",   "lumo_companion; data = {player, name, kind, state, reason}; sem assinantes hoje -- existe para quem quiser reagir ao humor do Lumo")
 lumo.events.declare("STRUCTURE_DETECTED", "lumo_interactions; data = {player, name, kind, pos, size}")
 lumo.events.declare("CREATION_RECORDED",  "lumo_journal; data = {player, name, creation}")
+lumo.events.declare("CANVAS_BUILT",      "lumo_canvas; data = {player, name, pos, width, height, blocks, filename}")

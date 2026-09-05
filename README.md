@@ -51,6 +51,7 @@ Isso é o que evita que o jogo vire uma bola de código onde tudo consulta tudo.
 | `lumo_ui` | HUD, inventário e menus | implementado |
 | `lumo_accessibility` | opções sensoriais e de ritmo | implementado |
 | `lumo_journal` | o Livro das Criações | implementado |
+| `lumo_canvas` | desenha um PNG com blocos, pixel a pixel | implementado |
 
 O Lumo do `lumo_companion` hoje conversa e muda de estado, mas ainda não tem
 corpo: a entidade que anda pelo mundo depende de modelo e textura que ainda não
@@ -63,6 +64,8 @@ Três checagens rodam em segundos e não precisam da engine compilada:
     python utils/check_mods.py       # dependências e as regras de first_mod/last_mod
     bash   utils/check_lua.sh        # sintaxe de todo o Lua
     lua    utils/test_events.lua     # comportamento do event bus
+    lua    utils/test_png.lua        # decodificador de PNG
+    lua    utils/test_paleta.lua     # paleta e casamento de cor
 
 E uma quarta, que precisa da engine e é a única que responde "a engine aceita
 este jogo?":
