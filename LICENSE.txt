@@ -1,3 +1,21 @@
+Lumo - Oficina dos Mundos
+=========================
+
+Lumo é um trabalho derivado do Minetest Game
+(https://github.com/luanti-org/minetest_game).
+
+Todo o conteúdo herdado do Minetest Game -- código, texturas e sons -- continua
+sob as licenças originais reproduzidas abaixo, e os avisos de copyright
+originais são preservados na íntegra.
+
+O código novo do Lumo (os mods com prefixo `lumo_`) é licenciado sob a
+LGPL 2.1 ou posterior, a mesma licença do material herdado.
+
+
+=====================================================================
+Licenças herdadas do Minetest Game
+=====================================================================
+
 License of media (textures and sounds)
 --------------------------------------
 Copyright (C) 2010-2012 celeron55, Perttu Ahola <celeron55@gmail.com>

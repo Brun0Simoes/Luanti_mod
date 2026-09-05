@@ -1,22 +1,12 @@
-## Files related to minetest development cycle
-/*.patch
-# GNU Patch reject file
-*.rej
+# Mundos de teste gerados pelo smoke_test.sh ficam fora do jogo, mas se alguém
+# rodar a engine com o jogo em outro layout, isto evita commitar mundo.
+worlds/
 
-## Editors and Development environments
-*~
+# Binários auxiliares de validação (luac/lua compilados do lib/lua da engine).
+.tools/
+
+# Lixo de editor e de sistema.
 *.swp
-*.bak*
-*.orig
-# Vim
-*.vim
-# Kate
-.*.kate-swp
-.swp.*
-# Eclipse (LDT)
-.project
-.settings/
-.buildpath
-.metadata
-# Idea IDE
-.idea/*
+*~
+.DS_Store
+Thumbs.db
