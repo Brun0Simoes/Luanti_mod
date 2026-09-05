@@ -1,5 +1,5 @@
 diff --git a/android/app/build.gradle b/android/app/build.gradle
-index 6be86b810..5b9108443 100644
+index 6be86b810..184f2e06b 100644
 --- a/android/app/build.gradle
 +++ b/android/app/build.gradle
 @@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
@@ -11,7 +11,33 @@ index 6be86b810..5b9108443 100644
  		minSdkVersion 21
  		compileSdk = 34
  		targetSdkVersion 35
-@@ -113,6 +113,21 @@ tasks.register("prepareAssets") {
+@@ -33,7 +33,24 @@ android {
+ 
+ 		buildTypes {
+ 			release {
+-				minifyEnabled true
++				// Minificacao DESLIGADA, de proposito.
++				//
++				// Ela so era ligada quando havia keystore, e o CI do Luanti
++				// compila sem keystore -- ou seja, o caminho minificado nao e
++				// testado por ninguem. Ele quebra: o codigo nativo registra
++				// metodos Java pelo nome (RegisterNatives), o R8 nao enxerga
++				// essa ligacao, renomeia os metodos, e o jogo morre ao abrir
++				// com "Failed to register native method
++				// org.libsdl.app.SDLControllerManager.onNativeJoy".
++				//
++				// O APK e quase todo codigo nativo e assets; o R8 economizaria
++				// uns poucos quilobytes da camada Java. Nao vale trocar isso
++				// por um caminho que ninguem exercita.
++				//
++				// Para religar seria preciso um proguard-rules.pro mantendo
++				// org.libsdl.app.** e net.minetest.minetest.**, alem de
++				// -keepclasseswithmembernames de metodos nativos.
++				minifyEnabled false
+ 				signingConfig signingConfigs.release
+ 			}
+ 		}
+@@ -113,6 +130,21 @@ tasks.register("prepareAssets") {
  			from "${localeFolder}" into "${assetsFolder}/locale"
  		}
  

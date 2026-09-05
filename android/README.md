@@ -44,6 +44,33 @@ O ícone continua o do Luanti: não temos arte própria, e a
 [política do projeto](../../../doc/developing/ai_policy.md) proíbe arte gerada
 por máquina.
 
+## Minificação: desligada, de propósito
+
+O `build.gradle` do Luanti liga `minifyEnabled true` **apenas quando existe uma
+keystore configurada** — e o projeto não tem nenhum `proguard-rules.pro`. Como o
+CI do Luanti compila sem keystore, os APKs oficiais nunca são minificados: esse
+caminho não é exercitado por ninguém.
+
+Configurar a assinatura, que é obrigatória para o APK instalar, liga esse
+caminho sem avisar. O resultado é um APK que instala, abre, descompacta os
+assets — e morre ao entrar no jogo:
+
+    Failed to register native method
+    org.libsdl.app.SDLControllerManager.onNativeJoy(IIF)V
+
+O código nativo registra métodos Java pelo nome, via `RegisterNatives`. O R8 não
+enxerga essa ligação: para ele são métodos sem uso, e ele os renomeia.
+
+O patch desliga a minificação. O APK é quase todo código nativo e assets, então
+o R8 economizaria uns poucos quilobytes da camada Java — não vale trocar isso
+por um caminho que ninguém testa. Para religá-la seria preciso um
+`proguard-rules.pro` mantendo `org.libsdl.app.**`, `net.minetest.minetest.**` e
+`-keepclasseswithmembernames` dos métodos nativos.
+
+Vale registrar como isso apareceu: **todas as verificações estruturais
+passavam**. Assinatura válida, pacote certo, 1583 arquivos do jogo dentro do
+APK. Só rodar num emulador mostrou o problema.
+
 ## Assinatura
 
 Um APK precisa ser assinado para instalar. Crie uma chave e aponte
